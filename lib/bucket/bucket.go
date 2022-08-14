@@ -16,7 +16,7 @@ var (
 // Split takes an absolute path which includes the bucket and
 // splits it into a bucket and a path in that bucket
 // bucketPath
-func Split(absPath string) (bucket, bucketPath string) {
+func Split(absPath string) (bucket, bucketPath string) { // 切分成 bucket 和 path
 	// No bucket
 	if absPath == "" {
 		return "", ""
@@ -26,6 +26,8 @@ func Split(absPath string) (bucket, bucketPath string) {
 	if slash < 0 {
 		return absPath, ""
 	}
+	// if slash+1 <= len(absPath)-1 && absPath[slash+1] == '/' {
+	// }
 	return absPath[:slash], absPath[slash+1:]
 }
 

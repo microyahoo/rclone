@@ -2268,15 +2268,18 @@ func (f *Fs) shouldRetry(ctx context.Context, err error) (bool, error) {
 }
 
 // parsePath parses a remote 'url'
-func parsePath(path string) (root string) {
-	root = strings.Trim(path, "/")
-	return
+func parsePath(path string) string {
+	for strings.HasPrefix(path, "/") {
+		path = strings.TrimPrefix(path, "/")
+	}
+	return path
 }
 
 // split returns bucket and bucketPath from the rootRelativePath
 // relative to f.root
 func (f *Fs) split(rootRelativePath string) (bucketName, bucketPath string) {
-	bucketName, bucketPath = bucket.Split(path.Join(f.root, rootRelativePath))
+	bucketName, bucketPath = bucket.Split(f.root + rootRelativePath)
+	// bucketName, bucketPath = bucket.Split(path.Join(f.root, rootRelativePath))
 	return f.opt.Enc.FromStandardName(bucketName), f.opt.Enc.FromStandardPath(bucketPath)
 }
 
@@ -2378,6 +2381,7 @@ func s3Connection(ctx context.Context, opt *Options, client *http.Client) (*s3.S
 	awsConfig := aws.NewConfig().
 		WithMaxRetries(ci.LowLevelRetries).
 		WithCredentials(cred).
+		WithDisableRestProtocolURICleaning(true).
 		WithHTTPClient(client).
 		WithS3ForcePathStyle(opt.ForcePathStyle).
 		WithS3UseAccelerate(opt.UseAccelerateEndpoint).
@@ -2616,6 +2620,7 @@ func setQuirks(opt *Options) {
 // setRoot changes the root of the Fs
 func (f *Fs) setRoot(root string) {
 	f.root = parsePath(root)
+	// f.root = root
 	f.rootBucket, f.rootDirectory = bucket.Split(f.root)
 }
 
@@ -2706,7 +2711,7 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 	if f.rootBucket != "" && f.rootDirectory != "" && !opt.NoHeadObject && !strings.HasSuffix(root, "/") {
 		// Check to see if the (bucket,directory) is actually an existing file
 		oldRoot := f.root
-		newRoot, leaf := path.Split(oldRoot)
+		newRoot, leaf := path.Split(oldRoot) // 再次切分
 		f.setRoot(newRoot)
 		_, err := f.NewObject(ctx, leaf)
 		if err != nil {
@@ -3245,10 +3250,16 @@ func (f *Fs) list(ctx context.Context, opt listOpt, fn listFn) error {
 				}
 				remote = f.opt.Enc.ToStandardPath(remote)
 				if !strings.HasPrefix(remote, opt.prefix) {
+					// if !strings.HasPrefix(remote, opt.prefix) && remote != "/" {
 					fs.Logf(f, "Odd name received %q", remote)
 					continue
 				}
 				remote = remote[len(opt.prefix):]
+				// if len(opt.prefix) > len(remote) {
+				// 	remote = opt.prefix
+				// } else {
+				// 	remote = remote[len(opt.prefix):]
+				// }
 				if opt.addBucket {
 					remote = path.Join(opt.bucket, remote)
 				}
@@ -4692,6 +4703,7 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 
 var warnStreamUpload sync.Once
 
+// TODO(zhengliang)
 func (o *Object) uploadMultipart(ctx context.Context, req *s3.PutObjectInput, size int64, in io.Reader) (etag string, versionID *string, err error) {
 	f := o.fs
 
