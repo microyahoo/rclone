@@ -26,6 +26,8 @@ func Split(absPath string) (bucket, bucketPath string) {
 	if slash < 0 {
 		return absPath, ""
 	}
+	if slash+1 <= len(absPath)-1 && absPath[slash+1] == '/' {
+	}
 	return absPath[:slash], absPath[slash+1:]
 }
 

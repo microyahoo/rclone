@@ -2276,7 +2276,8 @@ func parsePath(path string) (root string) {
 // split returns bucket and bucketPath from the rootRelativePath
 // relative to f.root
 func (f *Fs) split(rootRelativePath string) (bucketName, bucketPath string) {
-	bucketName, bucketPath = bucket.Split(path.Join(f.root, rootRelativePath))
+	bucketName, bucketPath = bucket.Split(f.root + rootRelativePath)
+	// bucketName, bucketPath = bucket.Split(path.Join(f.root, rootRelativePath))
 	return f.opt.Enc.FromStandardName(bucketName), f.opt.Enc.FromStandardPath(bucketPath)
 }
 
@@ -2378,6 +2379,7 @@ func s3Connection(ctx context.Context, opt *Options, client *http.Client) (*s3.S
 	awsConfig := aws.NewConfig().
 		WithMaxRetries(ci.LowLevelRetries).
 		WithCredentials(cred).
+		WithDisableRestProtocolURICleaning(true).
 		WithHTTPClient(client).
 		WithS3ForcePathStyle(opt.ForcePathStyle).
 		WithS3UseAccelerate(opt.UseAccelerateEndpoint).
@@ -2615,7 +2617,8 @@ func setQuirks(opt *Options) {
 
 // setRoot changes the root of the Fs
 func (f *Fs) setRoot(root string) {
-	f.root = parsePath(root)
+	// f.root = parsePath(root)
+	f.root = root
 	f.rootBucket, f.rootDirectory = bucket.Split(f.root)
 }
 
@@ -3244,11 +3247,15 @@ func (f *Fs) list(ctx context.Context, opt listOpt, fn listFn) error {
 					}
 				}
 				remote = f.opt.Enc.ToStandardPath(remote)
-				if !strings.HasPrefix(remote, opt.prefix) {
+				if !strings.HasPrefix(remote, opt.prefix) && remote != "/" {
 					fs.Logf(f, "Odd name received %q", remote)
 					continue
 				}
-				remote = remote[len(opt.prefix):]
+				if len(opt.prefix) > len(remote) {
+					remote = opt.prefix
+				} else {
+					remote = remote[len(opt.prefix):]
+				}
 				if opt.addBucket {
 					remote = path.Join(opt.bucket, remote)
 				}
